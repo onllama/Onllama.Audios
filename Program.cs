@@ -35,7 +35,7 @@ namespace Onllama.Audios
             //app.UseHttpsRedirection();
             //app.UseAuthorization();
 
-            app.Map("/upload", async (HttpContext httpContext) =>
+            app.Map("/v1/audio/transcriptions", async (HttpContext httpContext) =>
             {
                 if (httpContext.Request.Method.ToUpper() != "POST")
                     return Results.Ok("Use Post");
