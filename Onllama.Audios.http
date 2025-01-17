@@ -1,0 +1,6 @@
+@Onllama.Audios_HostAddress = http://localhost:5207
+
+GET {{Onllama.Audios_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
