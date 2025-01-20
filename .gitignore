@@ -362,3 +362,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /ggml-base-q5_1.bin
+/hifigan_v2.onnx
