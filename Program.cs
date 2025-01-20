@@ -1,4 +1,10 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Options;
+using SherpaOnnx;
 using Whisper.net;
 
 namespace Onllama.Audios
@@ -55,6 +61,65 @@ namespace Onllama.Audios
                     text += result.Text;
 
                 return Results.Ok(isText ? text : new {file.FileName, file.Length, text});
+            });
+
+            app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
+            {
+                var input = "什么都没有输入哦";
+
+                if (httpContext.Request.Method.ToUpper() == "POST")
+                {
+                    var reader = new StreamReader(httpContext.Request.Body, Encoding.UTF8);
+                    var str = await reader.ReadToEndAsync();
+                    Console.WriteLine(str);
+                    var json = JsonNode.Parse(str);
+                    input = json?["input"]?.ToString();
+                }
+                else if (httpContext.Request.Method.ToUpper() == "GET" &&
+                         httpContext.Request.Query.ContainsKey("input"))
+                {
+                    input = httpContext.Request.Query["input"];
+                }
+
+                Console.WriteLine("input:" + input);
+
+                var config = new OfflineTtsConfig();
+                //config.Model.Vits.Model = "./vits-icefall-zh-aishell3/model.onnx";
+                //config.Model.Vits.Lexicon = "./vits-icefall-zh-aishell3/lexicon.txt";
+                //config.Model.Vits.Tokens = "./vits-icefall-zh-aishell3/tokens.txt";
+                //config.Model.Vits.DataDir = options.DataDir;
+                //config.Model.Vits.DictDir = options.DictDir;
+                //config.Model.Vits.NoiseScale = options.NoiseScale;
+                //config.Model.Vits.NoiseScaleW = options.NoiseScaleW;
+                //config.Model.Vits.LengthScale = options.LengthScale;
+
+                config.Model.Matcha.AcousticModel = "./matcha-icefall-zh-baker/model-steps-3.onnx";
+                config.Model.Matcha.Vocoder = "./hifigan_v2.onnx";
+                config.Model.Matcha.Lexicon = "./matcha-icefall-zh-baker/lexicon.txt";
+                config.Model.Matcha.Tokens = "./matcha-icefall-zh-baker/tokens.txt";
+                //config.Model.Matcha.DataDir = "./matcha-icefall-en_US-ljspeech/espeak-ng-data";
+                config.Model.Matcha.DictDir = "./matcha-icefall-zh-baker/dict";
+                config.Model.Matcha.NoiseScale = 0.667F;
+                config.Model.Matcha.LengthScale = 1;
+
+                config.Model.NumThreads = 4;
+                config.Model.Debug = 0;
+                config.Model.Provider = "cpu";
+                config.RuleFsts = "./matcha-icefall-zh-baker/phone.fst,./matcha-icefall-zh-baker/date.fst,./matcha-icefall-zh-baker/number.fst";
+                //config.RuleFars = "./vits-icefall-zh-aishell3/rule.far";
+                config.MaxNumSentences = 1;
+
+                var tts = new OfflineTts(config);
+                var speed = 1.0f ;
+                var audio = tts.Generate(input, speed, 0);
+                var file = $"./{Guid.NewGuid()}.wav";
+                var ok = audio.SaveToWaveFile(file);
+
+                if (!ok) return Results.StatusCode(500);
+                httpContext.Response.Headers.ContentType = "audio/wav";
+                await httpContext.Response.SendFileAsync(file);
+                if(File.Exists(file)) File.Delete(file);
+                return Results.Empty;
             });
 
             app.Run();
