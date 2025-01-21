@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
@@ -84,6 +85,13 @@ namespace Onllama.Audios
                 Console.WriteLine("input:" + input);
 
                 var config = new OfflineTtsConfig();
+
+                if (File.Exists("tts.json"))
+                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(File.ReadAllText("tts.json"),
+                        new JsonSerializerOptions { IncludeFields = true });
+
+                #region TTSConfig
+
                 //config.Model.Vits.Model = "./vits-icefall-zh-aishell3/model.onnx";
                 //config.Model.Vits.Lexicon = "./vits-icefall-zh-aishell3/lexicon.txt";
                 //config.Model.Vits.Tokens = "./vits-icefall-zh-aishell3/tokens.txt";
@@ -93,21 +101,25 @@ namespace Onllama.Audios
                 //config.Model.Vits.NoiseScaleW = options.NoiseScaleW;
                 //config.Model.Vits.LengthScale = options.LengthScale;
 
-                config.Model.Matcha.AcousticModel = "./matcha-icefall-zh-baker/model-steps-3.onnx";
-                config.Model.Matcha.Vocoder = "./hifigan_v2.onnx";
-                config.Model.Matcha.Lexicon = "./matcha-icefall-zh-baker/lexicon.txt";
-                config.Model.Matcha.Tokens = "./matcha-icefall-zh-baker/tokens.txt";
-                //config.Model.Matcha.DataDir = "./matcha-icefall-en_US-ljspeech/espeak-ng-data";
-                config.Model.Matcha.DictDir = "./matcha-icefall-zh-baker/dict";
-                config.Model.Matcha.NoiseScale = 0.667F;
-                config.Model.Matcha.LengthScale = 1;
-
-                config.Model.NumThreads = 4;
-                config.Model.Debug = 0;
-                config.Model.Provider = "cpu";
-                config.RuleFsts = "./matcha-icefall-zh-baker/phone.fst,./matcha-icefall-zh-baker/date.fst,./matcha-icefall-zh-baker/number.fst";
+                //config.Model.Matcha.AcousticModel = "./matcha-icefall-zh-baker/model-steps-3.onnx";
+                //config.Model.Matcha.Vocoder = "./hifigan_v2.onnx";
+                //config.Model.Matcha.Lexicon = "./matcha-icefall-zh-baker/lexicon.txt";
+                //config.Model.Matcha.Tokens = "./matcha-icefall-zh-baker/tokens.txt";
+                ////config.Model.Matcha.DataDir = "./matcha-icefall-en_US-ljspeech/espeak-ng-data";
+                //config.Model.Matcha.DictDir = "./matcha-icefall-zh-baker/dict";
+                //config.Model.Matcha.NoiseScale = 0.667F;
+                //config.Model.Matcha.LengthScale = 1;
+                //config.RuleFsts = "./matcha-icefall-zh-baker/phone.fst,./matcha-icefall-zh-baker/date.fst,./matcha-icefall-zh-baker/number.fst";
                 //config.RuleFars = "./vits-icefall-zh-aishell3/rule.far";
-                config.MaxNumSentences = 1;
+
+                //config.Model.NumThreads = 4;
+                //config.Model.Debug = 1;
+                //config.Model.Provider = "cpu";
+                //config.MaxNumSentences = 1;
+
+                #endregion
+
+
 
                 var tts = new OfflineTts(config);
                 var speed = 1.0f ;

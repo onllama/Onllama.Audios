@@ -1,0 +1,18 @@
+{
+  "Model": {
+    "Matcha": {
+      "AcousticModel": "./matcha-icefall-zh-baker/model-steps-3.onnx",
+      "Vocoder": "./hifigan_v2.onnx",
+      "Lexicon": "./matcha-icefall-zh-baker/lexicon.txt",
+      "Tokens": "./matcha-icefall-zh-baker/tokens.txt",
+      "DictDir": "./matcha-icefall-zh-baker/dict",
+      "NoiseScale": 0.667,
+      "LengthScale": 1
+    },
+    "NumThreads": 8,
+    "Debug": 1,
+    "Provider": "cpu"
+  },
+  "RuleFsts": "./matcha-icefall-zh-baker/phone.fst,./matcha-icefall-zh-baker/date.fst,./matcha-icefall-zh-baker/number.fst",
+  "MaxNumSentences": 3
+}
