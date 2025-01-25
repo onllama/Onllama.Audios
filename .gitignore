@@ -34,6 +34,7 @@ bld/
 [Ll]ogs/
 
 matcha-icefall-zh-baker/
+kokoro-en-v0_19/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
