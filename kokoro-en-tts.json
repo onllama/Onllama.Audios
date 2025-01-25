@@ -4,11 +4,10 @@
       "Model": "./kokoro-en-v0_19/model.onnx",
       "Voices": "./kokoro-en-v0_19/voices.bin",
       "Tokens": "./kokoro-en-v0_19/tokens.txt",
-      "DictDir": "./kokoro-en-v0_19/espeak-ng-data"
+      "DataDir": "./kokoro-en-v0_19/espeak-ng-data"
     },
-    "NumThreads": 8,
+    "NumThreads": 2,
     "Debug": 1,
     "Provider": "cpu"
-  },
-  "MaxNumSentences": 3
+  }
 }
