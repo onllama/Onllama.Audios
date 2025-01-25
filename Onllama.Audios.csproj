@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.10.39" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.10.41" />
     <PackageReference Include="Whisper.net" Version="1.7.4" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.7.4" />
   </ItemGroup>

@@ -12,12 +12,11 @@ namespace Onllama.Audios
 {
     public class Program
     {
-        private static WhisperFactory MyWhisperFactory = WhisperFactory.FromPath("ggml-base-q5_1.bin");
-        private static WhisperProcessor MyWhisperProcessor = MyWhisperFactory.CreateBuilder()
-            .WithLanguage("auto").Build();
-
         public static void Main(string[] args)
         {
+            var myWhisperFactory = WhisperFactory.FromPath("ggml-base-q5_1.bin");
+            var myWhisperProcessor = myWhisperFactory.CreateBuilder()
+                .WithLanguage("auto").Build();
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
@@ -58,7 +57,7 @@ namespace Onllama.Audios
                     return Results.BadRequest("No file uploaded.");
 
                 var text = string.Empty;
-                await foreach (var result in MyWhisperProcessor.ProcessAsync(file.OpenReadStream()))
+                await foreach (var result in myWhisperProcessor.ProcessAsync(file.OpenReadStream()))
                     text += result.Text;
 
                 return Results.Ok(isText ? text : new {file.FileName, file.Length, text});
@@ -67,6 +66,7 @@ namespace Onllama.Audios
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
             {
                 var input = "什么都没有输入哦";
+                var voice = 0;
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
                 {
@@ -75,6 +75,7 @@ namespace Onllama.Audios
                     Console.WriteLine(str);
                     var json = JsonNode.Parse(str);
                     input = json?["input"]?.ToString();
+                    voice = int.TryParse(json?["voice"]?.ToString(), out var vid) ? vid : 0;
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
@@ -121,7 +122,7 @@ namespace Onllama.Audios
 
                 var tts = new OfflineTts(config);
                 var speed = 1.0f ;
-                var audio = tts.Generate(input, speed, 0);
+                var audio = tts.Generate(input, speed, voice);
                 var file = $"./{Guid.NewGuid()}.wav";
                 var ok = audio.SaveToWaveFile(file);
 
