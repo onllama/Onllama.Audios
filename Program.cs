@@ -72,6 +72,7 @@ namespace Onllama.Audios
             {
                 var input = "什么都没有输入哦, Nothing in input";
                 var voice = 0;
+                var speed = 1.0f;
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
                 {
@@ -81,6 +82,7 @@ namespace Onllama.Audios
                     var json = JsonNode.Parse(str);
                     input = json?["input"]?.ToString();
                     voice = int.TryParse(json?["voice"]?.ToString(), out var vid) ? vid : 0;
+                    speed = float.TryParse(json?["speed"]?.ToString(), out var fs) ? fs : 1.0f;
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
@@ -90,7 +92,7 @@ namespace Onllama.Audios
 
                 Console.WriteLine("input:" + input);
 
-                var config = new OfflineTtsConfig();
+                OfflineTtsConfig config;
                 var ttsConfigPath = configurationRoot["SherpaTtsConfig"] ?? "tts.json";
 
 
@@ -100,7 +102,7 @@ namespace Onllama.Audios
                 else
                     return Results.BadRequest("Cannot find tts configuration file " + ttsConfigPath);
 
-                Console.WriteLine(JsonSerializer.Serialize(config, new JsonSerializerOptions { IncludeFields = true }));
+                //Console.WriteLine(JsonSerializer.Serialize(config, new JsonSerializerOptions { IncludeFields = true }));
 
                 #region TTSConfig
 
@@ -132,7 +134,6 @@ namespace Onllama.Audios
                 #endregion
 
                 var tts = new OfflineTts(config);
-                var speed = 1.0f ;
                 var audio = tts.Generate(input, speed, voice);
                 var file = $"./{Guid.NewGuid()}.wav";
                 var ok = audio.SaveToWaveFile(file);
