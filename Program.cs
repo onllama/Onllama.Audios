@@ -14,7 +14,12 @@ namespace Onllama.Audios
     {
         public static void Main(string[] args)
         {
-            var myWhisperFactory = WhisperFactory.FromPath("ggml-base-q5_1.bin");
+            var configurationRoot = new ConfigurationBuilder()
+                .AddEnvironmentVariables()
+                .AddJsonFile("appsettings.json")
+                .Build();
+
+            var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "whisper.bin");
             var myWhisperProcessor = myWhisperFactory.CreateBuilder()
                 .WithLanguage("auto").Build();
             var builder = WebApplication.CreateBuilder(args);
@@ -65,7 +70,7 @@ namespace Onllama.Audios
 
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
             {
-                var input = "什么都没有输入哦";
+                var input = "什么都没有输入哦, Nothing in input";
                 var voice = 0;
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
@@ -86,10 +91,16 @@ namespace Onllama.Audios
                 Console.WriteLine("input:" + input);
 
                 var config = new OfflineTtsConfig();
+                var ttsConfigPath = configurationRoot["SherpaTtsConfig"] ?? "tts.json";
 
-                if (File.Exists("tts.json"))
-                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(await File.ReadAllTextAsync("tts.json"),
-                        new JsonSerializerOptions { IncludeFields = true });
+
+                if (File.Exists(ttsConfigPath))
+                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(await File.ReadAllTextAsync(ttsConfigPath),
+                        new JsonSerializerOptions {IncludeFields = true});
+                else
+                    return Results.BadRequest("Cannot find tts configuration file " + ttsConfigPath);
+
+                Console.WriteLine(JsonSerializer.Serialize(config, new JsonSerializerOptions { IncludeFields = true }));
 
                 #region TTSConfig
 
