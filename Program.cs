@@ -87,7 +87,7 @@ namespace Onllama.Audios
                 var config = new OfflineTtsConfig();
 
                 if (File.Exists("tts.json"))
-                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(File.ReadAllText("tts.json"),
+                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(await File.ReadAllTextAsync("tts.json"),
                         new JsonSerializerOptions { IncludeFields = true });
 
                 #region TTSConfig
@@ -118,8 +118,6 @@ namespace Onllama.Audios
                 //config.MaxNumSentences = 1;
 
                 #endregion
-
-
 
                 var tts = new OfflineTts(config);
                 var speed = 1.0f ;
