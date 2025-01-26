@@ -22,6 +22,12 @@ namespace Onllama.Audios
             var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "whisper.bin");
             var myWhisperProcessor = myWhisperFactory.CreateBuilder()
                 .WithLanguage("auto").Build();
+
+            var ttsConfig = JsonSerializer.Deserialize<OfflineTtsConfig>(
+                File.ReadAllText(configurationRoot["SherpaTtsConfig"] ?? "tts.json"),
+                new JsonSerializerOptions {IncludeFields = true});
+            var ttsEngine = new OfflineTts(ttsConfig);
+
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
@@ -92,15 +98,11 @@ namespace Onllama.Audios
 
                 Console.WriteLine("input:" + input);
 
-                OfflineTtsConfig config;
-                var ttsConfigPath = configurationRoot["SherpaTtsConfig"] ?? "tts.json";
-
-
-                if (File.Exists(ttsConfigPath))
-                    config = JsonSerializer.Deserialize<OfflineTtsConfig>(await File.ReadAllTextAsync(ttsConfigPath),
-                        new JsonSerializerOptions {IncludeFields = true});
-                else
-                    return Results.BadRequest("Cannot find tts configuration file " + ttsConfigPath);
+                //if (File.Exists(ttsConfigPath))
+                //    config = JsonSerializer.Deserialize<OfflineTtsConfig>(await File.ReadAllTextAsync(ttsConfigPath),
+                //        new JsonSerializerOptions {IncludeFields = true});
+                //else
+                //    return Results.BadRequest("Cannot find tts configuration file " + ttsConfigPath);
 
                 //Console.WriteLine(JsonSerializer.Serialize(config, new JsonSerializerOptions { IncludeFields = true }));
 
@@ -133,8 +135,7 @@ namespace Onllama.Audios
 
                 #endregion
 
-                var tts = new OfflineTts(config);
-                var audio = tts.Generate(input, speed, voice);
+                var audio = ttsEngine.Generate(input, speed, voice);
                 var file = $"./{Guid.NewGuid()}.wav";
                 var ok = audio.SaveToWaveFile(file);
 
