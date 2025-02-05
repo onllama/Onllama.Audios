@@ -1,12 +1,13 @@
-using System;
-using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Jitbit.Utils;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Extensions.Options;
+using System.Threading;
+using System.Threading.Tasks;
 using SherpaOnnx;
 using Whisper.net;
+using Timer = System.Timers.Timer;
 
 namespace Onllama.Audios
 {
@@ -19,14 +20,17 @@ namespace Onllama.Audios
                 .AddJsonFile("appsettings.json")
                 .Build();
 
+            var ttsEngines = new FastCache<string, OfflineTts>();
+
             var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "whisper.bin");
             var myWhisperProcessor = myWhisperFactory.CreateBuilder()
                 .WithLanguage("auto").Build();
 
-            var ttsConfig = JsonSerializer.Deserialize<OfflineTtsConfig>(
-                File.ReadAllText(configurationRoot["SherpaTtsConfig"] ?? "tts.json"),
-                new JsonSerializerOptions {IncludeFields = true});
-            var ttsEngine = new OfflineTts(ttsConfig);
+            //new Timer(15000) {Enabled = true, AutoReset = true}.Elapsed += (_, _) =>
+            //{
+            //    ttsEngines.EvictExpired();
+            //    GC.Collect(0);
+            //};
 
             var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +83,7 @@ namespace Onllama.Audios
                 var input = "什么都没有输入哦, Nothing in input";
                 var voice = 0;
                 var speed = 1.0f;
+                var model = "kokoro-en-tts";
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
                 {
@@ -89,6 +94,9 @@ namespace Onllama.Audios
                     input = json?["input"]?.ToString();
                     voice = int.TryParse(json?["voice"]?.ToString(), out var vid) ? vid : 0;
                     speed = float.TryParse(json?["speed"]?.ToString(), out var fs) ? fs : 1.0f;
+                    model = json?["model"]?.ToString();
+
+                    if (string.IsNullOrWhiteSpace(model) || File.Exists(model + ".json")) model = configurationRoot["SherpaTtsConfig"];
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
@@ -134,6 +142,15 @@ namespace Onllama.Audios
                 //config.MaxNumSentences = 1;
 
                 #endregion
+
+
+                var ttsEngine = ttsEngines.TryGet(model, out var tts)
+                    ? tts
+                    : new OfflineTts(JsonSerializer.Deserialize<OfflineTtsConfig>(
+                        await File.ReadAllTextAsync(model + (model.EndsWith(".json") ? string.Empty : ".json")),
+                        new JsonSerializerOptions {IncludeFields = true}));
+
+                ttsEngines.AddOrUpdate(model, ttsEngine, TimeSpan.FromMinutes(25));
 
                 var audio = ttsEngine.Generate(input, speed, voice);
                 var file = $"./{Guid.NewGuid()}.wav";
