@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 using SherpaOnnx;
 using Whisper.net;
 using Timer = System.Timers.Timer;
+using System;
+using ICSharpCode.SharpZipLib.BZip2;
+using ICSharpCode.SharpZipLib.Tar;
 
 namespace Onllama.Audios
 {
@@ -15,6 +18,32 @@ namespace Onllama.Audios
     {
         public static void Main(string[] args)
         {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    Directory.CreateDirectory("models");
+
+                    using var httpClient = new HttpClient();
+                    using var response = await httpClient.GetAsync("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2");
+                    await using BZip2InputStream bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
+                    await using TarInputStream tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
+                    while (tarInputStream.GetNextEntry() is { } entry)
+                    {
+                        if (entry.IsDirectory) continue;
+                        var entryPath = Path.Combine("models", entry.Name);
+                        var entryDir = Path.GetDirectoryName(entryPath);
+                        if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
+                        await using var entryStream = File.Create(entryPath);
+                        tarInputStream.CopyEntryContents(entryStream);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+
             var configurationRoot = new ConfigurationBuilder()
                 .AddEnvironmentVariables()
                 .AddJsonFile("appsettings.json")
