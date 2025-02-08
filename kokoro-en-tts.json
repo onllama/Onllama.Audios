@@ -1,10 +1,10 @@
 {
   "Model": {
     "Kokoro": {
-      "Model": "./kokoro-en-v0_19/model.onnx",
-      "Voices": "./kokoro-en-v0_19/voices.bin",
-      "Tokens": "./kokoro-en-v0_19/tokens.txt",
-      "DataDir": "./kokoro-en-v0_19/espeak-ng-data"
+      "Model": "./models/kokoro-en-v0_19/model.onnx",
+      "Voices": "./models/kokoro-en-v0_19/voices.bin",
+      "Tokens": "./models/kokoro-en-v0_19/tokens.txt",
+      "DataDir": "./models/kokoro-en-v0_19/espeak-ng-data"
     },
     "NumThreads": 2,
     "Debug": 1,

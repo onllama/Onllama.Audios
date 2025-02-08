@@ -39,7 +39,7 @@ namespace Onllama.Audios
                               
                               """");
 
-            if (args[1] == "pull")
+            if (args is [_, "pull", _])
             {
                 if (!Directory.Exists("models")) Directory.CreateDirectory("models");
                 var jsonUrl = new Uri(args[2]);
@@ -48,14 +48,16 @@ namespace Onllama.Audios
                     try
                     {
                         var json = JsonNode.Parse(await new HttpClient().GetStringAsync(jsonUrl));
-                        await File.WriteAllTextAsync(jsonUrl.Segments.Last(),json.ToJsonString());
+                        await File.WriteAllTextAsync(jsonUrl.Segments.Last(), json.ToJsonString());
                         foreach (var item in json["Files"].AsArray())
                         {
                             if (item.ToString().EndsWith(".tar.bz2"))
                             {
                                 using var response = await new HttpClient().GetAsync(item.ToString());
-                                await using BZip2InputStream bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
-                                await using TarInputStream tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
+                                await using BZip2InputStream bzip2Stream =
+                                    new BZip2InputStream(await response.Content.ReadAsStreamAsync());
+                                await using TarInputStream tarInputStream =
+                                    new TarInputStream(bzip2Stream, Encoding.UTF8);
                                 while (tarInputStream.GetNextEntry() is { } entry)
                                 {
                                     if (entry.IsDirectory) continue;
@@ -69,7 +71,8 @@ namespace Onllama.Audios
                             else if (item.ToString().EndsWith(".onnx"))
                             {
                                 await File.WriteAllBytesAsync(new Uri(item.ToString()).Segments.Last(),
-                                    await (await new HttpClient().GetAsync(item.ToString())).Content.ReadAsByteArrayAsync());
+                                    await (await new HttpClient().GetAsync(item.ToString())).Content
+                                        .ReadAsByteArrayAsync());
                             }
                         }
                     }
