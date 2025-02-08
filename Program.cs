@@ -1,48 +1,84 @@
-using System.Text;
+ï»¿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Jitbit.Utils;
 using Microsoft.AspNetCore.Http.Features;
-using System.Threading;
-using System.Threading.Tasks;
 using SherpaOnnx;
 using Whisper.net;
-using Timer = System.Timers.Timer;
-using System;
+using FFMpegCore;
+using FFMpegCore.Pipes;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.Tar;
+using System;
 
 namespace Onllama.Audios
 {
-    public class Program
+    public static class Program
     {
         public static void Main(string[] args)
         {
-            Task.Run(async () =>
-            {
-                try
-                {
-                    Directory.CreateDirectory("models");
+            Console.WriteLine(""""
+                                 ,  ,
+                                (\ "\
+                                ,--;.)._
+                               ).,-._ . ""-,_
+                              /.'".- " 8 o . ";_  Onllama.Audios / Oudios Lite                           
+                              `L_ ,-)) o . 8.o .""-.---...,,--------.._   _"";
+                               """  ")) 8 . . 8 . 8   8  8  8  8. 8 8 ._""._;
+                                     ";. .8 .8  .8  8  8  8  8 . 8. 8 .".""
+                                        ;.. 8 ; .  8. 8  8  8 . } 8 . 8 :
+                                         ;.. 8 ; 8. 8  8  8  8 (  . 8 . :
+                                           ;. 8 \ .   .......;;;  8 . 8 :
+                                            ;o  ;"\\\\```````( o(  8   .;
+                                            : o:  ;           :. : . 8 (
+                                            :o ; ;             "; ";. o :
+                                            ; o; ;               "; ;";..\
+                              (c) Milkey T. ;.; .:                )./  ;. ;
+                                  2025     _).< .;              _;./  _;./
+                                         ;"__/--"             ((__7  ((_J
+                              
+                              """");
 
-                    using var httpClient = new HttpClient();
-                    using var response = await httpClient.GetAsync("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2");
-                    await using BZip2InputStream bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
-                    await using TarInputStream tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
-                    while (tarInputStream.GetNextEntry() is { } entry)
-                    {
-                        if (entry.IsDirectory) continue;
-                        var entryPath = Path.Combine("models", entry.Name);
-                        var entryDir = Path.GetDirectoryName(entryPath);
-                        if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
-                        await using var entryStream = File.Create(entryPath);
-                        tarInputStream.CopyEntryContents(entryStream);
-                    }
-                }
-                catch (Exception ex)
+            if (args[1] == "pull")
+            {
+                if (!Directory.Exists("models")) Directory.CreateDirectory("models");
+                var jsonUrl = new Uri(args[2]);
+                Task.Run(async () =>
                 {
-                    Console.WriteLine(ex);
-                }
-            });
+                    try
+                    {
+                        var json = JsonNode.Parse(await new HttpClient().GetStringAsync(jsonUrl));
+                        await File.WriteAllTextAsync(jsonUrl.Segments.Last(),json.ToJsonString());
+                        foreach (var item in json["Files"].AsArray())
+                        {
+                            if (item.ToString().EndsWith(".tar.bz2"))
+                            {
+                                using var response = await new HttpClient().GetAsync(item.ToString());
+                                await using BZip2InputStream bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
+                                await using TarInputStream tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
+                                while (tarInputStream.GetNextEntry() is { } entry)
+                                {
+                                    if (entry.IsDirectory) continue;
+                                    var entryPath = Path.Combine("models", entry.Name);
+                                    var entryDir = Path.GetDirectoryName(entryPath);
+                                    if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
+                                    await using var entryStream = File.Create(entryPath);
+                                    tarInputStream.CopyEntryContents(entryStream);
+                                }
+                            }
+                            else if (item.ToString().EndsWith(".onnx"))
+                            {
+                                await File.WriteAllBytesAsync(new Uri(item.ToString()).Segments.Last(),
+                                    await (await new HttpClient().GetAsync(item.ToString())).Content.ReadAsByteArrayAsync());
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                    }
+                }).Wait();
+            }
 
             var configurationRoot = new ConfigurationBuilder()
                 .AddEnvironmentVariables()
@@ -99,17 +135,25 @@ namespace Onllama.Audios
 
                 if (file == null || file.Length == 0)
                     return Results.BadRequest("No file uploaded.");
-
                 var text = string.Empty;
-                await foreach (var result in myWhisperProcessor.ProcessAsync(file.OpenReadStream()))
-                    text += result.Text;
 
+                MemoryStream memoryStream = new();
+                await FFMpegArguments
+                    .FromPipeInput(new StreamPipeSource(file.OpenReadStream()))
+                    .OutputToPipe(new StreamPipeSink(memoryStream), options => options
+                        .WithAudioSamplingRate(16000) 
+                        .ForceFormat("wav")
+                    ).ProcessAsynchronously();
+                memoryStream.Position = 0;
+
+                await foreach (var result in myWhisperProcessor.ProcessAsync(memoryStream))
+                    text += result.Text;
                 return Results.Ok(isText ? text : new {file.FileName, file.Length, text});
             });
 
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
             {
-                var input = "Ê²Ã´¶¼Ã»ÓÐÊäÈëÅ¶, Nothing in input";
+                var input = "ä»€ä¹ˆéƒ½æ²¡æœ‰è¾“å…¥å“¦, Nothing in input";
                 var voice = 0;
                 var speed = 1.0f;
                 var model = "kokoro-en-tts";
@@ -125,7 +169,7 @@ namespace Onllama.Audios
                     speed = float.TryParse(json?["speed"]?.ToString(), out var fs) ? fs : 1.0f;
                     model = json?["model"]?.ToString();
 
-                    if (string.IsNullOrWhiteSpace(model) || File.Exists(model + ".json")) model = configurationRoot["SherpaTtsConfig"];
+                    if (string.IsNullOrWhiteSpace(model) || !File.Exists(model + ".json")) model = configurationRoot["SherpaTtsConfig"];
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
