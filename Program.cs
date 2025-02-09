@@ -185,7 +185,7 @@ namespace Onllama.Audios
             {
                 var input = "什么都没有输入, Nothing in input";
                 var voice = 0;
-                var speed = 1.0f;
+                var speed = 1.05f;
                 var model = "kokoro-multi-lang-tts";
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
