@@ -17,6 +17,7 @@ namespace Onllama.Audios
      Subcommand(typeof(PullCommand), typeof(ServeCommand))]
     class Program
     {
+        public static string BasePath = ".";
         static int Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
         private void OnExecute(CommandLineApplication app)
@@ -61,7 +62,8 @@ namespace Onllama.Audios
                     try
                     {
                         var json = JsonNode.Parse(await new HttpClient().GetStringAsync(jsonUrl));
-                        await File.WriteAllTextAsync(jsonUrl.Segments.Last(), json.ToJsonString());
+                        await File.WriteAllTextAsync(Path.Combine(BasePath, "manifests", jsonUrl.Segments.Last()),
+                            json.ToJsonString());
                         foreach (var item in json["Files"].AsArray())
                         {
                             if (item.ToString().EndsWith(".tar.bz2"))
@@ -72,7 +74,7 @@ namespace Onllama.Audios
                                 while (tarInputStream.GetNextEntry() is { } entry)
                                 {
                                     if (entry.IsDirectory) continue;
-                                    var entryPath = Path.Combine("models", entry.Name);
+                                    var entryPath = Path.Combine(BasePath, "models", entry.Name);
                                     var entryDir = Path.GetDirectoryName(entryPath);
                                     if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
                                     await using var entryStream = File.Create(entryPath);
@@ -113,8 +115,9 @@ namespace Onllama.Audios
 
             var ttsEngines = new FastCache<string, OfflineTts>();
 
-            var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "./models/whisper.bin");
-            var myWhisperProcessor = myWhisperFactory.CreateBuilder()
+            var myWhisperProcessor = WhisperFactory
+                .FromPath(configurationRoot["WhisperModel"] ?? Path.Combine(BasePath, "models", "whisper.bin"))
+                .CreateBuilder()
                 .WithLanguage("auto").Build();
 
             //new Timer(15000) {Enabled = true, AutoReset = true}.Elapsed += (_, _) =>
@@ -183,7 +186,7 @@ namespace Onllama.Audios
                 var input = "什么都没有输入哦, Nothing in input";
                 var voice = 0;
                 var speed = 1.0f;
-                var model = "kokoro-en-tts";
+                var model = "kokoro-multi-lang-tts";
 
                 if (httpContext.Request.Method.ToUpper() == "POST")
                 {
@@ -195,17 +198,18 @@ namespace Onllama.Audios
                     voice = int.TryParse(json?["voice"]?.ToString(), out var vid) ? vid : 0;
                     speed = float.TryParse(json?["speed"]?.ToString(), out var fs) ? fs : 1.0f;
                     model = json?["model"]?.ToString();
-
-                    if (string.IsNullOrWhiteSpace(model) || !File.Exists(Path.Combine("./manifests", model + ".json")))
-                        model = configurationRoot["SherpaTtsConfig"];
-                    else
-                        model = Path.Combine("./manifests", model + ".json");
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
                 {
                     input = httpContext.Request.Query["input"];
                 }
+
+                if (string.IsNullOrWhiteSpace(model) ||
+                    !File.Exists(Path.Combine(BasePath, "manifests", model + ".json")))
+                    model = configurationRoot["SherpaTtsConfig"];
+                else
+                    model = Path.Combine(BasePath, "manifests", model + ".json");
 
                 Console.WriteLine("input:" + input);
 

@@ -2,10 +2,10 @@
   "Model": {
     "Matcha": {
       "AcousticModel": "./models/matcha-icefall-zh-baker/model-steps-3.onnx",
-      "Vocoder": "./hifigan_v2.onnx",
-      "Lexicon": "./matcha-icefall-zh-baker/lexicon.txt",
-      "Tokens": "./matcha-icefall-zh-baker/tokens.txt",
-      "DictDir": "./matcha-icefall-zh-baker/dict",
+      "Vocoder": "./models/hifigan_v2.onnx",
+      "Lexicon": "./models/matcha-icefall-zh-baker/lexicon.txt",
+      "Tokens": "./models/matcha-icefall-zh-baker/tokens.txt",
+      "DictDir": "./models/matcha-icefall-zh-baker/dict",
       "NoiseScale": 0.667,
       "LengthScale": 1
     },
@@ -13,10 +13,5 @@
     "Debug": 1,
     "Provider": "cpu"
   },
-  "RuleFsts": "./matcha-icefall-zh-baker/phone.fst,./matcha-icefall-zh-baker/date.fst,./matcha-icefall-zh-baker/number.fst",
-  "MaxNumSentences": 3,
-  "Files": [
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-baker.tar.bz2",
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/hifigan_v2.onnx"
-  ]
+  "RuleFsts": "./models/matcha-icefall-zh-baker/phone.fst,./models/matcha-icefall-zh-baker/date.fst,./models/matcha-icefall-zh-baker/number.fst"
 }

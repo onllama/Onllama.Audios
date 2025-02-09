@@ -1,0 +1,15 @@
+{
+  "Model": {
+    "Kokoro": {
+      "Model": "./models/kokoro-multi-lang-v1_0/model.onnx",
+      "Voices": "./models/kokoro-multi-lang-v1_0/voices.bin",
+      "Tokens": "./models/kokoro-multi-lang-v1_0/tokens.txt",
+      "DataDir": "./models/kokoro-multi-lang-v1_0/espeak-ng-data",
+      "DictDir": "./models/kokoro-multi-lang-v1_0/dict",
+      "Lexicon": "./models/kokoro-multi-lang-v1_0/lexicon-us-en.txt,./models/kokoro-multi-lang-v1_0/lexicon-zh.txt"
+    },
+    "NumThreads": 2,
+    "Debug": 1,
+    "Provider": "cpu"
+  }
+}
