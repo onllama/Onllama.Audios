@@ -11,7 +11,7 @@
     <PackageReference Include="FFMpegCore" Version="5.1.0" />
     <PackageReference Include="Jitbit.FastCache" Version="1.1.0" />
     <PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="4.1.1" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.10.41" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.10.43" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="Whisper.net" Version="1.7.4" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.7.4" />

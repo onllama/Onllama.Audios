@@ -183,7 +183,7 @@ namespace Onllama.Audios
 
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
             {
-                var input = "什么都没有输入哦, Nothing in input";
+                var input = "什么都没有输入, Nothing in input";
                 var voice = 0;
                 var speed = 1.0f;
                 var model = "kokoro-multi-lang-tts";
