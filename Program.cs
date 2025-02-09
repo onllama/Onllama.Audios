@@ -67,10 +67,8 @@ namespace Onllama.Audios
                             if (item.ToString().EndsWith(".tar.bz2"))
                             {
                                 using var response = await new HttpClient().GetAsync(item.ToString());
-                                await using BZip2InputStream bzip2Stream =
-                                    new BZip2InputStream(await response.Content.ReadAsStreamAsync());
-                                await using TarInputStream tarInputStream =
-                                    new TarInputStream(bzip2Stream, Encoding.UTF8);
+                                await using var bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
+                                await using var tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
                                 while (tarInputStream.GetNextEntry() is { } entry)
                                 {
                                     if (entry.IsDirectory) continue;
@@ -115,7 +113,7 @@ namespace Onllama.Audios
 
             var ttsEngines = new FastCache<string, OfflineTts>();
 
-            var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "whisper.bin");
+            var myWhisperFactory = WhisperFactory.FromPath(configurationRoot["WhisperModel"] ?? "./models/whisper.bin");
             var myWhisperProcessor = myWhisperFactory.CreateBuilder()
                 .WithLanguage("auto").Build();
 
@@ -198,7 +196,10 @@ namespace Onllama.Audios
                     speed = float.TryParse(json?["speed"]?.ToString(), out var fs) ? fs : 1.0f;
                     model = json?["model"]?.ToString();
 
-                    if (string.IsNullOrWhiteSpace(model) || !File.Exists(model + ".json")) model = configurationRoot["SherpaTtsConfig"];
+                    if (string.IsNullOrWhiteSpace(model) || !File.Exists(Path.Combine("./manifests", model + ".json")))
+                        model = configurationRoot["SherpaTtsConfig"];
+                    else
+                        model = Path.Combine("./manifests", model + ".json");
                 }
                 else if (httpContext.Request.Method.ToUpper() == "GET" &&
                          httpContext.Request.Query.ContainsKey("input"))
@@ -249,7 +250,7 @@ namespace Onllama.Audios
                 var ttsEngine = ttsEngines.TryGet(model, out var tts)
                     ? tts
                     : new OfflineTts(JsonSerializer.Deserialize<OfflineTtsConfig>(
-                        await File.ReadAllTextAsync(model + (model.EndsWith(".json") ? string.Empty : ".json")),
+                        await File.ReadAllTextAsync(model),
                         new JsonSerializerOptions { IncludeFields = true }));
 
                 ttsEngines.AddOrUpdate(model, ttsEngine, TimeSpan.FromMinutes(25));
