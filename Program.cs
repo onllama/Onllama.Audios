@@ -9,40 +9,53 @@ using FFMpegCore;
 using FFMpegCore.Pipes;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.Tar;
-using System;
+using McMaster.Extensions.CommandLineUtils;
 
 namespace Onllama.Audios
 {
-    public static class Program
+    [Command(Name = "oudios"),
+     Subcommand(typeof(PullCommand), typeof(ServeCommand))]
+    class Program
     {
-        public static void Main(string[] args)
+        static int Main(string[] args) => CommandLineApplication.Execute<Program>(args);
+
+        private void OnExecute(CommandLineApplication app)
         {
             Console.WriteLine(""""
-                                 ,  ,
-                                (\ "\
-                                ,--;.)._
-                               ).,-._ . ""-,_
-                              /.'".- " 8 o . ";_  Onllama.Audios / Oudios Lite                           
-                              `L_ ,-)) o . 8.o .""-.---...,,--------.._   _"";
-                               """  ")) 8 . . 8 . 8   8  8  8  8. 8 8 ._""._;
-                                     ";. .8 .8  .8  8  8  8  8 . 8. 8 .".""
-                                        ;.. 8 ; .  8. 8  8  8 . } 8 . 8 :
-                                         ;.. 8 ; 8. 8  8  8  8 (  . 8 . :
-                                           ;. 8 \ .   .......;;;  8 . 8 :
-                                            ;o  ;"\\\\```````( o(  8   .;
-                                            : o:  ;           :. : . 8 (
-                                            :o ; ;             "; ";. o :
-                                            ; o; ;               "; ;";..\
-                              (c) Milkey T. ;.; .:                )./  ;. ;
-                                  2025     _).< .;              _;./  _;./
-                                         ;"__/--"             ((__7  ((_J
-                              
-                              """");
+                                         ,  ,
+                                        (\ "\
+                                        ,--;.)._
+                                       ).,-._ . ""-,_
+                                      /.'".- " 8 o . ";_  Onllama.Audios / Oudios Lite                           
+                                      `L_ ,-)) o . 8.o .""-.---...,,--------.._   _"";
+                                       """  ")) 8 . . 8 . 8   8  8  8  8. 8 8 ._""._;
+                                             ";. .8 .8  .8  8  8  8  8 . 8. 8 .".""
+                                                ;.. 8 ; .  8. 8  8  8 . } 8 . 8 :
+                                                 ;.. 8 ; 8. 8  8  8  8 (  . 8 . :
+                                                   ;. 8 \ .   .......;;;  8 . 8 :
+                                                    ;o  ;"\\\\```````( o(  8   .;
+                                                    : o:  ;           :. : . 8 (
+                                                    :o ; ;             "; ";. o :
+                                                    ; o; ;               "; ;";..\
+                                      (c) Milkey T. ;.; .:                )./  ;. ;
+                                          2025     _).< .;              _;./  _;./
+                                                 ;"__/--"             ((__7  ((_J
+                                      """");
+            Console.WriteLine();
+            if (!Directory.Exists("models")) app.ShowHelp();
+            else RunServer();
+        }
 
-            if (args is [_, "pull", _])
+        [Command("pull", Description = "拉取指定配置文件和模型")]
+        class PullCommand
+        {
+            [Argument(0, Description = "配置文件路径")]
+            public string FileUrl { get; }
+
+            private void OnExecute()
             {
                 if (!Directory.Exists("models")) Directory.CreateDirectory("models");
-                var jsonUrl = new Uri(args[2]);
+                var jsonUrl = new Uri(FileUrl);
                 Task.Run(async () =>
                 {
                     try
@@ -82,10 +95,22 @@ namespace Onllama.Audios
                     }
                 }).Wait();
             }
+        }
 
+        [Command("serve", Description = "启动服务器")]
+        class ServeCommand
+        {
+            [Option("--config|-c", Description = "服务器配置文件路径")]
+            public string Config { get; }
+
+            public void OnExecute() => RunServer(string.IsNullOrWhiteSpace(Config) ? "appsettings.json" : Config);
+        }
+
+        public static void RunServer(string config = "appsettings.json")
+        {
             var configurationRoot = new ConfigurationBuilder()
                 .AddEnvironmentVariables()
-                .AddJsonFile("appsettings.json")
+                .AddJsonFile(config)
                 .Build();
 
             var ttsEngines = new FastCache<string, OfflineTts>();
@@ -100,7 +125,8 @@ namespace Onllama.Audios
             //    GC.Collect(0);
             //};
 
-            var builder = WebApplication.CreateBuilder(args);
+            var builder = WebApplication.CreateBuilder();
+            //var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
             builder.Services.AddAuthorization();
@@ -133,7 +159,7 @@ namespace Onllama.Audios
                     return Results.BadRequest("Invalid request format. Expected multipart/form-data.");
 
                 var from = await httpContext.Request.ReadFormAsync();
-                var isText = from.TryGetValue("response_format",out var format) && format == "text";
+                var isText = from.TryGetValue("response_format", out var format) && format == "text";
                 var file = from.Files["file"];
 
                 if (file == null || file.Length == 0)
@@ -144,14 +170,14 @@ namespace Onllama.Audios
                 await FFMpegArguments
                     .FromPipeInput(new StreamPipeSource(file.OpenReadStream()))
                     .OutputToPipe(new StreamPipeSink(memoryStream), options => options
-                        .WithAudioSamplingRate(16000) 
+                        .WithAudioSamplingRate(16000)
                         .ForceFormat("wav")
                     ).ProcessAsynchronously();
                 memoryStream.Position = 0;
 
                 await foreach (var result in myWhisperProcessor.ProcessAsync(memoryStream))
                     text += result.Text;
-                return Results.Ok(isText ? text : new {file.FileName, file.Length, text});
+                return Results.Ok(isText ? text : new { file.FileName, file.Length, text });
             });
 
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
@@ -224,7 +250,7 @@ namespace Onllama.Audios
                     ? tts
                     : new OfflineTts(JsonSerializer.Deserialize<OfflineTtsConfig>(
                         await File.ReadAllTextAsync(model + (model.EndsWith(".json") ? string.Empty : ".json")),
-                        new JsonSerializerOptions {IncludeFields = true}));
+                        new JsonSerializerOptions { IncludeFields = true }));
 
                 ttsEngines.AddOrUpdate(model, ttsEngine, TimeSpan.FromMinutes(25));
 
@@ -235,11 +261,13 @@ namespace Onllama.Audios
                 if (!ok) return Results.StatusCode(500);
                 httpContext.Response.Headers.ContentType = "audio/wav";
                 await httpContext.Response.SendFileAsync(file);
-                if(File.Exists(file)) File.Delete(file);
+                if (File.Exists(file)) File.Delete(file);
                 return Results.Empty;
             });
 
             app.Run();
         }
     }
+
+
 }
