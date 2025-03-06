@@ -18,6 +18,7 @@ namespace Onllama.Audios
     class Program
     {
         public static string BasePath = ".";
+
         static int Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
         private void OnExecute(CommandLineApplication app)
@@ -47,66 +48,70 @@ namespace Onllama.Audios
             else RunServer();
         }
 
-        [Command("pull", Description = "拉取指定配置文件和模型")]
-        class PullCommand
-        {
-            [Argument(0, Description = "配置文件路径")]
-            public string FileUrl { get; }
-
-            private void OnExecute()
+        [Command("pull", Description = "Pull the target configuration file and model")]
+            class PullCommand
             {
-                if (!Directory.Exists("models")) Directory.CreateDirectory("models");
-                var jsonUrl = new Uri(FileUrl);
-                Task.Run(async () =>
+                [Argument(0, Description = "Configuration file link")]
+                public string FileUrl { get; }
+
+                private void OnExecute()
                 {
-                    try
+                    if (!Directory.Exists("models")) Directory.CreateDirectory("models");
+                    var jsonUrl = new Uri(FileUrl);
+                    Task.Run(async () =>
                     {
-                        var json = JsonNode.Parse(await new HttpClient().GetStringAsync(jsonUrl));
-                        await File.WriteAllTextAsync(Path.Combine(BasePath, "manifests", jsonUrl.Segments.Last()),
-                            json.ToJsonString());
-                        foreach (var item in json["Files"].AsArray())
+                        try
                         {
-                            if (item.ToString().EndsWith(".tar.bz2"))
+                            var json = JsonNode.Parse(await new HttpClient().GetStringAsync(jsonUrl));
+                            await File.WriteAllTextAsync(Path.Combine(BasePath, "manifests", jsonUrl.Segments.Last()),
+                                json.ToJsonString());
+                            foreach (var item in json["Files"].AsArray())
                             {
-                                using var response = await new HttpClient().GetAsync(item.ToString());
-                                await using var bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
-                                await using var tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
-                                while (tarInputStream.GetNextEntry() is { } entry)
+                                if (item.ToString().EndsWith(".tar.bz2"))
                                 {
-                                    if (entry.IsDirectory) continue;
-                                    var entryPath = Path.Combine(BasePath, "models", entry.Name);
-                                    var entryDir = Path.GetDirectoryName(entryPath);
-                                    if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
-                                    await using var entryStream = File.Create(entryPath);
-                                    tarInputStream.CopyEntryContents(entryStream);
+                                    using var response = await new HttpClient().GetAsync(item.ToString());
+                                    await using var bzip2Stream = new BZip2InputStream(await response.Content.ReadAsStreamAsync());
+                                    await using var tarInputStream = new TarInputStream(bzip2Stream, Encoding.UTF8);
+                                    while (tarInputStream.GetNextEntry() is { } entry)
+                                    {
+                                        if (entry.IsDirectory) continue;
+                                        var entryPath = Path.Combine(BasePath, "models", entry.Name);
+                                        var entryDir = Path.GetDirectoryName(entryPath);
+                                        if (!Directory.Exists(entryDir)) Directory.CreateDirectory(entryDir);
+                                        await using var entryStream = File.Create(entryPath);
+                                        tarInputStream.CopyEntryContents(entryStream);
+                                    }
+                                }
+                                else if (item.ToString().EndsWith(".onnx"))
+                                {
+                                    await File.WriteAllBytesAsync(new Uri(item.ToString()).Segments.Last(),
+                                        await (await new HttpClient().GetAsync(item.ToString())).Content
+                                            .ReadAsByteArrayAsync());
                                 }
                             }
-                            else if (item.ToString().EndsWith(".onnx"))
-                            {
-                                await File.WriteAllBytesAsync(new Uri(item.ToString()).Segments.Last(),
-                                    await (await new HttpClient().GetAsync(item.ToString())).Content
-                                        .ReadAsByteArrayAsync());
-                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                }).Wait();
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
+                    }).Wait();
+                }
             }
-        }
 
-        [Command("serve", Description = "启动服务器")]
+        [Command("serve", Description = "Start the server")]
         class ServeCommand
         {
-            [Option("--config|-c", Description = "服务器配置文件路径")]
+            [Option("--config|-c", Description = "Server configuration file path")]
             public string Config { get; }
 
-            public void OnExecute() => RunServer(string.IsNullOrWhiteSpace(Config) ? "appsettings.json" : Config);
+            [Option("--no-use-ffmpeg", Description = "Do not use ffmpeg to convert audio")]
+            public bool? NoUseFfmpge { get; }
+
+            public void OnExecute() => RunServer(string.IsNullOrWhiteSpace(Config) ? "appsettings.json" : Config,
+                !(NoUseFfmpge ?? false));
         }
 
-        public static void RunServer(string config = "appsettings.json")
+        public static void RunServer(string config = "appsettings.json", bool useFfmpge = true)
         {
             var configurationRoot = new ConfigurationBuilder()
                 .AddEnvironmentVariables()
@@ -168,17 +173,22 @@ namespace Onllama.Audios
                 var text = string.Empty;
 
                 MemoryStream memoryStream = new();
-                await FFMpegArguments
-                    .FromPipeInput(new StreamPipeSource(file.OpenReadStream()))
-                    .OutputToPipe(new StreamPipeSink(memoryStream), options => options
-                        .WithAudioSamplingRate(16000)
-                        .ForceFormat("wav")
-                    ).ProcessAsynchronously();
-                memoryStream.Position = 0;
+                if (useFfmpge)
+                {
+                    await FFMpegArguments
+                        .FromPipeInput(new StreamPipeSource(file.OpenReadStream()))
+                        .OutputToPipe(new StreamPipeSink(memoryStream), options => options
+                            .WithAudioSamplingRate(16000)
+                            .ForceFormat("wav")
+                        ).ProcessAsynchronously();
+                    memoryStream.Position = 0;
+                }
 
-                await foreach (var result in myWhisperProcessor.ProcessAsync(memoryStream))
+                await foreach (var result in myWhisperProcessor.ProcessAsync(useFfmpge
+                                   ? memoryStream
+                                   : file.OpenReadStream()))
                     text += result.Text;
-                return Results.Ok(isText ? text : new { file.FileName, file.Length, text });
+                return Results.Ok(isText ? text : new {file.FileName, file.Length, text});
             });
 
             app.Map("/v1/audio/speech", async (HttpContext httpContext) =>
@@ -255,7 +265,7 @@ namespace Onllama.Audios
                     ? tts
                     : new OfflineTts(JsonSerializer.Deserialize<OfflineTtsConfig>(
                         await File.ReadAllTextAsync(model),
-                        new JsonSerializerOptions { IncludeFields = true }));
+                        new JsonSerializerOptions {IncludeFields = true}));
 
                 ttsEngines.AddOrUpdate(model, ttsEngine, TimeSpan.FromMinutes(25));
 
